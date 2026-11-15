@@ -266,6 +266,13 @@ actor LayoutStore {
   }
 
   func save(workspaceId: UUID, snapshot: LayoutSnapshot) {
+    // A `layouts.lock` file next to `layouts.json` freezes the saved layouts:
+    // live edits still apply in memory, but nothing is written, so the next
+    // load (relaunch or resident-tree rebuild) returns the hand-written file.
+    if FileManager.default.fileExists(atPath: lockURL.path) {
+      logger.debug("layout save skipped: layouts.lock present")
+      return
+    }
     guard var map = loadedMap() else { return }
     guard map[workspaceId.uuidString] != snapshot else { return }
     map[workspaceId.uuidString] = snapshot
@@ -312,6 +319,10 @@ actor LayoutStore {
   private let executor = DispatchSerialQueue(label: "dev.PangMo5.Tatami.LayoutStore", qos: .utility)
 
   private let fileURL: URL
+  private var lockURL: URL {
+    fileURL.deletingLastPathComponent().appendingPathComponent("layouts.lock", isDirectory: false)
+  }
+
   /// In-memory source of truth, read from disk once; saves write through.
   /// Re-reading + re-decoding the whole file before every save was pure
   /// disk churn (one full decode per committed resize/drag/BSP operation).
