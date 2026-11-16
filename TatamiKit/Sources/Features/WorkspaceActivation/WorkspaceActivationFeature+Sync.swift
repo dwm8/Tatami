@@ -147,6 +147,10 @@ extension WorkspaceActivationFeature {
       var t: BSPNode<WindowKey>? = nil
       for key in newOnes {
         if let cur = t {
+          if let stacked = cur.stacking(key, ontoLeafWith: { $0.bundleId == key.bundleId }) {
+            t = stacked
+            continue
+          }
           t = cur.inserting(
             key,
             near: nil,
@@ -163,6 +167,11 @@ extension WorkspaceActivationFeature {
 
     let focusedKey = focused()
     for id in newOnes {
+      // Another window of an app already tiled here shares that app's tile.
+      if let stacked = tree?.stacking(id, ontoLeafWith: { $0.bundleId == id.bundleId }) {
+        tree = stacked
+        continue
+      }
       let anchor: WindowKey? = {
         if let insertionPoint, tree?.windows.contains(insertionPoint) == true {
           return insertionPoint
@@ -1009,6 +1018,11 @@ extension WorkspaceActivationFeature {
           continue
         }
         if current.windows.contains(key) {
+          continue
+        }
+        // Another window of an app already tiled here shares that app's tile.
+        if let stacked = current.stacking(key, ontoLeafWith: { $0.bundleId == key.bundleId }) {
+          tree = stacked
           continue
         }
         let present = Set(current.windows)
